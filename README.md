@@ -43,3 +43,5 @@ I work across the full stack with a backend focus: **Node.js / TypeScript / Nest
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://linkedin.com/in/ahmed-magdy-hassan)
 [![Email](https://img.shields.io/badge/Email-trmdy%40hotmail.com-D14836?style=flat&logo=gmail&logoColor=white)](mailto:trmdy@hotmail.com)
 📍 Cairo, Egypt
+
+<!-- profile -->
