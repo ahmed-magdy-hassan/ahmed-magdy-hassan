@@ -187,9 +187,106 @@ final class EosbCalculatorServiceTest extends TestCase
         $this->assertArrayHasKey('monthly_wage', $arr);
         $this->assertArrayHasKey('service_years', $arr);
         $this->assertArrayHasKey('termination_reason', $arr);
+        $this->assertArrayHasKey('termination_reason_label', $arr);
         $this->assertArrayHasKey('full_entitlement', $arr);
         $this->assertArrayHasKey('resignation_multiplier', $arr);
         $this->assertArrayHasKey('final_amount', $arr);
         $this->assertArrayHasKey('breakdown', $arr);
+    }
+
+    /** @test */
+    public function contract_expiry_receives_full_entitlement(): void
+    {
+        $byEmployer = $this->service->calculate(
+            monthlyWage: 10_000.0,
+            startDate: Carbon::parse('2020-01-01'),
+            endDate: Carbon::parse('2023-01-01'),
+            reason: TerminationReason::EmployerTermination,
+        );
+
+        $contractExpiry = $this->service->calculate(
+            monthlyWage: 10_000.0,
+            startDate: Carbon::parse('2020-01-01'),
+            endDate: Carbon::parse('2023-01-01'),
+            reason: TerminationReason::ContractExpiry,
+        );
+
+        $this->assertEquals($byEmployer->finalAmount, $contractExpiry->finalAmount);
+        $this->assertSame(1.0, $contractExpiry->resignationMultiplier);
+    }
+
+    /** @test */
+    public function retirement_receives_full_entitlement(): void
+    {
+        $result = $this->service->calculate(
+            monthlyWage: 10_000.0,
+            startDate: Carbon::parse('2020-01-01'),
+            endDate: Carbon::parse('2023-01-01'),
+            reason: TerminationReason::Retirement,
+        );
+
+        $this->assertSame(1.0, $result->resignationMultiplier);
+        $this->assertSame($result->fullEntitlement, $result->finalAmount);
+    }
+
+    /** @test */
+    public function breakdown_contains_two_lines_for_service_over_five_years(): void
+    {
+        // 7 years → first 5 years line + beyond 5 years line
+        $result = $this->service->calculate(
+            monthlyWage: 10_000.0,
+            startDate: Carbon::parse('2016-01-01'),
+            endDate: Carbon::parse('2023-01-01'),
+            reason: TerminationReason::EmployerTermination,
+        );
+
+        $this->assertCount(2, $result->breakdown);
+        $this->assertArrayHasKey('label', $result->breakdown[0]);
+        $this->assertArrayHasKey('amount', $result->breakdown[0]);
+    }
+
+    /** @test */
+    public function breakdown_adds_resignation_multiplier_line_when_applicable(): void
+    {
+        // Resignation 3 years → 1 calculation line + 1 multiplier line
+        $result = $this->service->calculate(
+            monthlyWage: 10_000.0,
+            startDate: Carbon::parse('2020-01-01'),
+            endDate: Carbon::parse('2023-01-01'),
+            reason: TerminationReason::Resignation,
+        );
+
+        $labels = array_column($result->breakdown, 'label');
+        $hasMultiplierLine = (bool) array_filter($labels, fn($l) => str_contains($l, 'multiplier'));
+
+        $this->assertTrue($hasMultiplierLine);
+    }
+
+    /** @test */
+    public function result_to_array_termination_reason_label_is_string(): void
+    {
+        $result = $this->service->calculate(
+            monthlyWage: 10_000.0,
+            startDate: Carbon::parse('2020-01-01'),
+            endDate: Carbon::parse('2023-01-01'),
+            reason: TerminationReason::Resignation,
+        );
+
+        $this->assertIsString($result->toArray()['termination_reason_label']);
+        $this->assertNotEmpty($result->toArray()['termination_reason_label']);
+    }
+
+    /** @test */
+    public function zero_wage_produces_zero_entitlement(): void
+    {
+        $result = $this->service->calculate(
+            monthlyWage: 0.0,
+            startDate: Carbon::parse('2020-01-01'),
+            endDate: Carbon::parse('2023-01-01'),
+            reason: TerminationReason::EmployerTermination,
+        );
+
+        $this->assertSame(0.0, $result->finalAmount);
+        $this->assertSame(0.0, $result->fullEntitlement);
     }
 }
