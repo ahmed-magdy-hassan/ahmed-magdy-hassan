@@ -179,4 +179,46 @@ final class HijriDateServiceTest extends TestCase
         $this->assertStringContainsString('٫', $formatted);
         $this->assertStringContainsString('٥٠', $formatted);
     }
+
+    /** @test */
+    public function format_amount_arabic_zero_is_eastern_zero(): void
+    {
+        $this->assertSame('٠٫٠٠', $this->service->formatAmountArabic(0.0));
+    }
+
+    /** @test */
+    public function service_years_throws_when_dates_are_equal(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $date = new HijriDate(1445, 6, 19);
+        $this->service->serviceYearsBetween($date, $date);
+    }
+
+    /** @test */
+    public function converts_year_boundary_gregorian_date(): void
+    {
+        // December 31 of a year should convert without wrapping into next Hijri year incorrectly
+        $hijri = $this->service->toHijri('2023-12-31');
+        $back  = $this->service->toGregorian($hijri);
+
+        $this->assertSame('2023-12-31', $back->toDateString());
+    }
+
+    /** @test */
+    public function to_eastern_arabic_with_integer_input(): void
+    {
+        $this->assertSame('١٠', $this->service->toEasternArabic(10));
+    }
+
+    /** @test */
+    public function to_hijri_accepts_datetime_interface_and_string_identically(): void
+    {
+        $carbon = \Carbon\Carbon::parse('2000-01-01');
+
+        $fromString   = $this->service->toHijri('2000-01-01');
+        $fromDatetime = $this->service->toHijri($carbon);
+
+        $this->assertSame($fromString->toString(), $fromDatetime->toString());
+    }
 }
