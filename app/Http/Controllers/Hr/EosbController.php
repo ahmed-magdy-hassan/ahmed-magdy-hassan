@@ -8,13 +8,17 @@ use App\Enums\Payroll\TerminationReason;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hr\EosbCalculationRequest;
 use App\Models\Employee;
+use App\Services\Calendar\HijriDateService;
 use App\Services\Payroll\EosbCalculatorService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 
 final class EosbController extends Controller
 {
-    public function __construct(private readonly EosbCalculatorService $calculator) {}
+    public function __construct(
+        private readonly EosbCalculatorService $calculator,
+        private readonly HijriDateService $hijri,
+    ) {}
 
     /**
      * Preview EOSB amount without persisting.
@@ -24,12 +28,15 @@ final class EosbController extends Controller
     {
         $result = $this->calculator->calculate(
             monthlyWage: (float) $employee->basic_salary,
-            startDate: Carbon::parse($employee->hire_date),
-            endDate: Carbon::parse($request->validated('end_date')),
+            startDate: $request->resolvedHireDateOverride() ?? Carbon::parse($employee->hire_date),
+            endDate: $request->resolvedEndDate(),
             reason: TerminationReason::from($request->validated('termination_reason')),
         );
 
-        return response()->json($result->toArray());
+        $payload = $result->toArray();
+        $payload['dates'] = $this->buildDateMeta($request, $employee);
+
+        return response()->json($payload);
     }
 
     /**
@@ -40,8 +47,8 @@ final class EosbController extends Controller
     {
         $result = $this->calculator->calculate(
             monthlyWage: (float) $employee->basic_salary,
-            startDate: Carbon::parse($employee->hire_date),
-            endDate: Carbon::parse($request->validated('end_date')),
+            startDate: $request->resolvedHireDateOverride() ?? Carbon::parse($employee->hire_date),
+            endDate: $request->resolvedEndDate(),
             reason: TerminationReason::from($request->validated('termination_reason')),
         );
 
@@ -51,6 +58,38 @@ final class EosbController extends Controller
             'eosb_calculated_at'      => now(),
         ]);
 
-        return response()->json($result->toArray(), 201);
+        $payload = $result->toArray();
+        $payload['dates'] = $this->buildDateMeta($request, $employee);
+
+        return response()->json($payload, 201);
+    }
+
+    /**
+     * Build a calendar meta block included in every EOSB response.
+     * Exposes both Gregorian and Hijri representations of the key dates
+     * so the frontend (Arabic/RTL) can display the calendar of the user's choice.
+     */
+    private function buildDateMeta(EosbCalculationRequest $request, Employee $employee): array
+    {
+        $hireDate = $request->resolvedHireDateOverride() ?? Carbon::parse($employee->hire_date);
+        $endDate  = $request->resolvedEndDate();
+
+        $hireHijri = $this->hijri->toHijri($hireDate);
+        $endHijri  = $this->hijri->toHijri($endDate);
+
+        return [
+            'hire_date' => [
+                'gregorian' => $hireDate->toDateString(),
+                'hijri'     => $hireHijri->toString(),
+                'hijri_ar'  => $hireHijri->format('ar'),
+                'hijri_en'  => $hireHijri->format('en'),
+            ],
+            'end_date' => [
+                'gregorian' => $endDate->toDateString(),
+                'hijri'     => $endHijri->toString(),
+                'hijri_ar'  => $endHijri->format('ar'),
+                'hijri_en'  => $endHijri->format('en'),
+            ],
+        ];
     }
 }
