@@ -12,13 +12,13 @@ use PHPUnit\Framework\TestCase;
 final class EtaIncomeTaxServiceTest extends TestCase
 {
     private EtaIncomeTaxService $service;
-    private EgyptPayrollConfig  $config2025;
+    private EgyptPayrollConfig  $config2026;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->service    = new EtaIncomeTaxService();
-        $this->config2025 = EgyptPayrollConfig::forYear(2025);
+        $this->config2026 = EgyptPayrollConfig::forYear(2026);
     }
 
     /** @test */
@@ -28,7 +28,7 @@ final class EtaIncomeTaxServiceTest extends TestCase
         // Monthly taxable ≈ 2000 - 198 (NOSI 11% of 1800 clamped) - 1667 (exemption) < 0 → 0
         // Actual: 2000 - nosiEmployee - 1667 → depends on NOSI; result should be EGP 0 tax
         $nosi   = 220.0;  // approximate NOSI for 2000 EGP gross
-        $result = $this->service->calculate(2_000.0, $nosi, $this->config2025);
+        $result = $this->service->calculate(2_000.0, $nosi, $this->config2026);
 
         $this->assertSame(0.0, $result->monthlyWithholding);
         $this->assertSame(0.0, $result->annualTax);
@@ -42,7 +42,7 @@ final class EtaIncomeTaxServiceTest extends TestCase
         // Annual taxable  = 5453 × 12 = 65,436
         // Tax: 0–40000: 0; 40001–55000: 1500; 55001–65436: 10436 × 15% = 1565.40
         // Annual tax ≈ 3065.40  →  monthly ≈ 255.45
-        $result = $this->service->calculate(8_000.0, 880.0, $this->config2025);
+        $result = $this->service->calculate(8_000.0, 880.0, $this->config2026);
 
         $this->assertEqualsWithDelta(5_453.0, $result->monthlyTaxableIncome, 1.0);
         $this->assertEqualsWithDelta(65_436.0, $result->annualTaxableIncome, 12.0);
@@ -54,8 +54,8 @@ final class EtaIncomeTaxServiceTest extends TestCase
     public function high_salary_reaches_top_bracket(): void
     {
         // EGP 40,000/month — NOSI capped at max, should reach 27.5% top bracket
-        $nosiCapped = round($this->config2025->nosiMaxInsuredSalary * 0.11, 2);
-        $result = $this->service->calculate(40_000.0, $nosiCapped, $this->config2025);
+        $nosiCapped = round($this->config2026->nosiMaxInsuredSalary * 0.11, 2);
+        $result = $this->service->calculate(40_000.0, $nosiCapped, $this->config2026);
 
         $this->assertGreaterThan(200_000.0, $result->annualTaxableIncome);
         $this->assertGreaterThan(0.0, $result->monthlyWithholding);
@@ -68,7 +68,7 @@ final class EtaIncomeTaxServiceTest extends TestCase
     /** @test */
     public function bracket_breakdown_is_present_for_taxable_income(): void
     {
-        $result = $this->service->calculate(8_000.0, 880.0, $this->config2025);
+        $result = $this->service->calculate(8_000.0, 880.0, $this->config2026);
 
         $this->assertNotEmpty($result->bracketBreakdown);
         foreach ($result->bracketBreakdown as $bracket) {
@@ -82,8 +82,8 @@ final class EtaIncomeTaxServiceTest extends TestCase
     /** @test */
     public function effective_rate_increases_with_income(): void
     {
-        $low  = $this->service->calculate(5_000.0,  550.0, $this->config2025);
-        $high = $this->service->calculate(30_000.0, 1_375.0, $this->config2025);
+        $low  = $this->service->calculate(5_000.0,  550.0, $this->config2026);
+        $high = $this->service->calculate(30_000.0, 1_375.0, $this->config2026);
 
         $this->assertGreaterThan($low->effectiveAnnualRate(), $high->effectiveAnnualRate());
     }
@@ -92,6 +92,6 @@ final class EtaIncomeTaxServiceTest extends TestCase
     public function throws_on_negative_gross(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->service->calculate(-1_000.0, 0.0, $this->config2025);
+        $this->service->calculate(-1_000.0, 0.0, $this->config2026);
     }
 }
