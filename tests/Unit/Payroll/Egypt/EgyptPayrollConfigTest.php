@@ -67,6 +67,46 @@ final class EgyptPayrollConfigTest extends TestCase
         $this->assertSame(0.275, $topRate);
     }
 
+    /** @test */
+    public function each_year_from_2023_to_2027_has_explicit_bracket_entry(): void
+    {
+        // Verify every year has its own entry so callers never silently hit a fallback.
+        foreach (range(2023, 2027) as $year) {
+            $config = EgyptPayrollConfig::forYear($year);
+
+            $this->assertCount(6, $config->incomeTaxBrackets, "Year {$year} should have 6 brackets");
+            $this->assertSame(0.0,   $config->incomeTaxBrackets[0]['rate'], "Year {$year}: first bracket must be 0%");
+            $this->assertSame(0.275, $config->incomeTaxBrackets[5]['rate'], "Year {$year}: top bracket must be 27.5%");
+        }
+    }
+
+    /** @test */
+    public function brackets_for_2024_match_2023_finance_law_unchanged(): void
+    {
+        $config2023 = EgyptPayrollConfig::forYear(2023);
+        $config2024 = EgyptPayrollConfig::forYear(2024);
+
+        $this->assertSame($config2023->incomeTaxBrackets, $config2024->incomeTaxBrackets);
+    }
+
+    /** @test */
+    public function brackets_for_2025_match_2023_finance_law_unchanged(): void
+    {
+        $config2023 = EgyptPayrollConfig::forYear(2023);
+        $config2025 = EgyptPayrollConfig::forYear(2025);
+
+        $this->assertSame($config2023->incomeTaxBrackets, $config2025->incomeTaxBrackets);
+    }
+
+    /** @test */
+    public function brackets_for_2026_match_2023_finance_law_unchanged(): void
+    {
+        $config2023 = EgyptPayrollConfig::forYear(2023);
+        $config2026 = EgyptPayrollConfig::forYear(2026);
+
+        $this->assertSame($config2023->incomeTaxBrackets, $config2026->incomeTaxBrackets);
+    }
+
     // -----------------------------------------------------------------------
     // forYear() — fallback paths
     // -----------------------------------------------------------------------

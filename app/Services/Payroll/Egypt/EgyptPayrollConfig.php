@@ -49,25 +49,33 @@ final class EgyptPayrollConfig
     // null up_to = no ceiling (top bracket)
     // -----------------------------------------------------------------------
 
-    private const TAX_BRACKETS = [
-        // 2023 budget onward (Finance Law 2022)
-        2023 => [
-            ['up_to' =>  40_000.0, 'rate' => 0.000],
-            ['up_to' =>  55_000.0, 'rate' => 0.100],
-            ['up_to' =>  70_000.0, 'rate' => 0.150],
-            ['up_to' => 200_000.0, 'rate' => 0.200],
-            ['up_to' => 400_000.0, 'rate' => 0.225],
-            ['up_to' =>       null, 'rate' => 0.275],
-        ],
+    // Finance Law No. 2022 brackets — in effect from the 2023 budget onwards.
+    // When a new Finance Law changes the schedule, add a new named constant and
+    // map the affected years below; do NOT modify this constant in place.
+    private const BRACKETS_FL2022 = [
+        ['up_to' =>  40_000.0, 'rate' => 0.000],
+        ['up_to' =>  55_000.0, 'rate' => 0.100],
+        ['up_to' =>  70_000.0, 'rate' => 0.150],
+        ['up_to' => 200_000.0, 'rate' => 0.200],
+        ['up_to' => 400_000.0, 'rate' => 0.225],
+        ['up_to' =>       null, 'rate' => 0.275],
     ];
 
-    // Annual personal exemption (EGP) per Finance Law
+    private const TAX_BRACKETS = [
+        2023 => self::BRACKETS_FL2022,
+        2024 => self::BRACKETS_FL2022,  // Finance Laws 2023/24 made no bracket changes
+        2025 => self::BRACKETS_FL2022,  // Finance Law 2024/25 made no bracket changes
+        2026 => self::BRACKETS_FL2022,  // Finance Law 2025/26 made no bracket changes
+        2027 => self::BRACKETS_FL2022,  // update if Finance Law 2026/27 amends schedule
+    ];
+
+    // Annual personal exemption (EGP) per Finance Law No. 2022 Art. 13
     private const PERSONAL_EXEMPTION = [
         2022 => 15_000.0,
         2023 => 20_000.0,
         2024 => 20_000.0,
         2025 => 20_000.0,
-        2026 => 20_000.0,  // pending Finance Law 2026/27; update when published
+        2026 => 20_000.0,
         2027 => 20_000.0,
     ];
 
