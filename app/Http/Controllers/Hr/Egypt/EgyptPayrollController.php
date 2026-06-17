@@ -62,20 +62,13 @@ final class EgyptPayrollController extends Controller
     }
 
     /**
-     * Generate ETA Form 4 quarterly data for a company.
-     * GET /api/hr/egypt/companies/{company}/payroll/eta-form4?year=2025&quarter=1
+     * @deprecated  Use EgyptCompanyPayrollController::etaForm4() instead.
+     *              GET /api/hr/egypt/companies/{company}/payroll/eta-form4
      */
-    public function etaForm4(int $company, int $year, int $quarter): JsonResponse
+    public function etaForm4(): JsonResponse
     {
-        // Placeholder: full implementation requires iterating company employees,
-        // summing monthly withholdings per employee for the quarter, and
-        // producing the ETA Form 4 schema. Tracked in HRIST-191 follow-up.
         return response()->json([
-            'company_id' => $company,
-            'year'       => $year,
-            'quarter'    => $quarter,
-            'status'     => 'not_implemented',
-            'note'       => 'ETA Form 4 generation requires company employee list — implement after employee model EG fields are migrated.',
-        ], 501);
+            'message' => 'This endpoint has moved. Use GET /api/hr/egypt/companies/{company}/payroll/eta-form4?year=YYYY&quarter=Q',
+        ], 301);
     }
 }
