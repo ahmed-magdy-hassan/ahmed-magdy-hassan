@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Hr\Egypt;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hr\Egypt\EgyptPayrollRequest;
+use App\Http\Requests\Hr\Egypt\EtaForm4Request;
 use App\Models\Employee;
 use App\Services\Payroll\Egypt\EgyptPayrollCalculator;
 use App\Services\Payroll\Egypt\EgyptPayrollConfig;
@@ -62,20 +63,88 @@ final class EgyptPayrollController extends Controller
     }
 
     /**
-     * Generate ETA Form 4 quarterly data for a company.
-     * GET /api/hr/egypt/companies/{company}/payroll/eta-form4?year=2025&quarter=1
+     * Generate ETA Form 4 quarterly withholding data for a company.
+     * GET /api/hr/egypt/companies/{company}/payroll/eta-form4?year=2026&quarter=2
+     *
+     * Only employees with a populated eta_tax_id are included — employees
+     * without an ETA registration number are excluded from Form 4 filing.
+     *
+     * NOTE: Monthly withholding is calculated from each employee's current
+     * gross salary. Once payroll run records are persisted, this should be
+     * updated to read actuals from the payroll_runs table instead.
      */
-    public function etaForm4(int $company, int $year, int $quarter): JsonResponse
+    public function etaForm4(EtaForm4Request $request, int $company): JsonResponse
     {
-        // Placeholder: full implementation requires iterating company employees,
-        // summing monthly withholdings per employee for the quarter, and
-        // producing the ETA Form 4 schema. Tracked in HRIST-191 follow-up.
+        $year    = $request->year();
+        $quarter = $request->quarter();
+        $config  = EgyptPayrollConfig::forYear($year);
+        $months  = $this->quarterMonths($year, $quarter);
+
+        $headcount = Employee::where('company_id', $company)->count();
+
+        $employees = Employee::where('company_id', $company)
+            ->whereNotNull('eta_tax_id')
+            ->get();
+
+        $rows       = [];
+        $grandTotal = 0.0;
+
+        foreach ($employees as $employee) {
+            $gross = (float) ($employee->nosi_insured_salary ?? $employee->basic_salary);
+
+            $result             = $this->calculator->calculate($gross, max(1, $headcount), $config);
+            $monthlyWithholding = $result->incomeTax->monthlyWithholding;
+            $quarterlyTotal     = round($monthlyWithholding * 3, 2);
+            $grandTotal        += $quarterlyTotal;
+
+            $rows[] = [
+                'eta_tax_id'           => $employee->eta_tax_id,
+                'nosi_number'          => $employee->nosi_number,
+                'gross_salary'         => $gross,
+                'monthly_withholdings' => array_fill_keys($months, $monthlyWithholding),
+                'quarterly_total'      => $quarterlyTotal,
+            ];
+        }
+
+        [$periodFrom, $periodTo] = $this->quarterPeriod($year, $quarter);
+
         return response()->json([
-            'company_id' => $company,
-            'year'       => $year,
-            'quarter'    => $quarter,
-            'status'     => 'not_implemented',
-            'note'       => 'ETA Form 4 generation requires company employee list — implement after employee model EG fields are migrated.',
-        ], 501);
+            'company_id'   => $company,
+            'year'         => $year,
+            'quarter'      => $quarter,
+            'period'       => ['from' => $periodFrom, 'to' => $periodTo],
+            'generated_at' => now()->toIso8601String(),
+            'employees'    => $rows,
+            'summary'      => [
+                'employee_count'  => count($rows),
+                'quarterly_total' => round($grandTotal, 2),
+            ],
+        ]);
+    }
+
+    // -----------------------------------------------------------------------
+
+    /** Returns the three YYYY-MM month strings belonging to a given quarter. */
+    private function quarterMonths(int $year, int $quarter): array
+    {
+        $firstMonth = ($quarter - 1) * 3 + 1;
+
+        return [
+            sprintf('%d-%02d', $year, $firstMonth),
+            sprintf('%d-%02d', $year, $firstMonth + 1),
+            sprintf('%d-%02d', $year, $firstMonth + 2),
+        ];
+    }
+
+    /** Returns [from, to] date strings (YYYY-MM-DD) for a quarter's calendar range. */
+    private function quarterPeriod(int $year, int $quarter): array
+    {
+        $firstMonth = ($quarter - 1) * 3 + 1;
+        $lastMonth  = $firstMonth + 2;
+
+        $from = Carbon::createFromDate($year, $firstMonth, 1)->toDateString();
+        $to   = Carbon::createFromDate($year, $lastMonth,  1)->endOfMonth()->toDateString();
+
+        return [$from, $to];
     }
 }
